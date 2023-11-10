@@ -61,15 +61,21 @@ def update_db(update, context):
                 user_name,
                 user_id,
                 message_count))
-
-    # check, if qualifies, release rights
-    if is_qualified(chat_id, user_id) and not counts.find_one({
-        'chat_id': chat_id,
-        'user_id': user_id
-    })['is_qualified']:
-        release_rights(context.bot, chat_id, user_id)
-        counts.update_one({'chat_id': chat_id, 'user_id': user_id},
-                          {"$set": {'is_qualified': True}})
+    if try_release(context.bot, chat_id, user_id):
         logging.info(
             "Lock released: group {} username {}, id {}".format(
                 chat_id, user_name, user_id))
+
+
+def try_release(bot, chat_id, user_id, force=False):
+    counts = collection_counts()
+    # check, if qualifies, release rights
+    if force or (is_qualified(chat_id, user_id) and not counts.find_one({
+        'chat_id': chat_id,
+        'user_id': user_id
+    })['is_qualified']):
+        release_rights(bot, chat_id, user_id)
+        counts.update_one({'chat_id': chat_id, 'user_id': user_id},
+                          {"$set": {'is_qualified': True}})
+        return True
+    return False

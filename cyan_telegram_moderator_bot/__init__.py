@@ -5,7 +5,7 @@ import logging
 import os
 from random import randint
 from .ban_rights import ban_rights
-from .update_db import update_db
+from .update_db import update_db, try_release
 from .db import collection_group
 
 
@@ -38,6 +38,22 @@ def roll(update, context):
     if limit >= 1:
         result = randint(1, limit)
         update.effective_chat.send_message(result)
+
+
+def release(update, context):
+    logging.info("Manually release rights")
+    if not (update.message and update.message.reply_to_message):
+        return
+    target = update.message.reply_to_message.from_user
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    target_id = target.id
+    chat_member = context.bot.get_chat_member(chat_id, user_id)
+    if chat_member.status not in {CHATMEMBER_CREATOR, CHATMEMBER_ADMINISTRATOR}:
+        logging.info('no permission to release rights!')
+        return
+    if try_release(context.bot, chat_id, target_id, force=True):
+        update.effective_chat.send_message('Manually released rights!')
 
 
 set_types = {
@@ -80,13 +96,15 @@ dispatcher = updater.dispatcher
 echo_handler = CommandHandler('echo', echo)
 meow_handler = CommandHandler('meow', meow)
 roll_handler = CommandHandler('roll', roll)
-set_message_handler = CommandHandler('set', set_message)
+set_message_handler = CommandHandler('set', set_message, filters=Filters.chat_type.supergroup)
+release_handler = CommandHandler('release', release, filters=Filters.chat_type.supergroup)
 
 # send start message
 dispatcher.add_handler(echo_handler)
 dispatcher.add_handler(meow_handler)
 dispatcher.add_handler(roll_handler)
 dispatcher.add_handler(set_message_handler)
+dispatcher.add_handler(release_handler)
 
 # ban the rights except 'Send Text' for new useres
 dispatcher.add_handler(
