@@ -3,7 +3,7 @@ from os import environ
 
 import env
 # 加载变量
-DATABASE_URL = env.CYANBOT_DATABASE_URL
+DATABASE_URL=env.CYANBOT_DATABASE_URL
 DATABASE_NAME = env.CYANBOT_DATABASE_NAME
 
 async def connect_mongo():

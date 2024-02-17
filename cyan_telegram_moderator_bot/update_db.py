@@ -16,7 +16,7 @@ async def is_qualified(chat_id, user_id):
     }, limit=1):
         return True
 
-async def update_db(update, context):
+async def updatedb(update, context):
     user_id = update.effective_user.id
     user_name = update.effective_user.username
     first_name = update.effective_user.first_name

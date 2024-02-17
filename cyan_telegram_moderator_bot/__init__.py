@@ -14,16 +14,14 @@ from telegram.ext import (
 )
 import logging
 from random import randint
-from .update_db import try_release
+from .update_db import try_release,updatedb
 from .db import collection_group
-from .ban_rights import ban_rights
+from .ban_rights import banrights
 
 # 设定 cyan 群组变量
 # 加载变量
 import env
 TOKEN=env.TELEGRAM_TOKEN
-DATABASE_URL=env.CYANBOT_DATABASE_URL
-DATABASE_NAME = env.CYANBOT_DATABASE_NAME
 MESSAGE_COUNT = env.CYANBOT_MESSAGE_COUNT
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -109,7 +107,6 @@ logging.basicConfig(
 logging.info("echo")
 logging.info("meow")
 
-
 def main():
     # 创建 bot 应用实例
     application = (
@@ -120,6 +117,9 @@ def main():
     application.add_handler(CommandHandler('echo', echo, filters=filters.ChatType.SUPERGROUP))
     application.add_handler(CommandHandler('meow', meow, filters=filters.ChatType.SUPERGROUP))
     application.add_handler(CommandHandler('set', set_message, filters=filters.ChatType.SUPERGROUP))
-    application.add_handler(MessageHandler(filters.ChatType.SUPERGROUP & filters.StatusUpdate.NEW_CHAT_MEMBERS, ban_rights),group=4)
-    application.add_handler(MessageHandler(filters.ChatType.SUPERGROUP & filters.TEXT, update_db), group=5)
+    application.add_handler(MessageHandler(filters.ChatType.SUPERGROUP & filters.StatusUpdate.NEW_CHAT_MEMBERS, banrights),group=4)
+    application.add_handler(MessageHandler(filters.ChatType.SUPERGROUP & filters.TEXT, updatedb), group=5)
     application.run_polling()
+
+if __name__ == "__main__":
+    main()

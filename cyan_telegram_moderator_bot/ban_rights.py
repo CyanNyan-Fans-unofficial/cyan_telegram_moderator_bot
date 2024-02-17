@@ -4,7 +4,7 @@ from .db import collection_group
 from .permissions import RESTRICTED_PERMISSIONS, RELEASED_PERMISSIONS
 
 # 将函数定义为异步
-async def ban_rights(update, context):
+async def banrights(update, context):
     """Ban all rights except send text when first enter group"""
     # 确保collection_group().find_one也被修改为支持异步
     group_collection = await collection_group()
