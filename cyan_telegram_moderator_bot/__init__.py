@@ -5,24 +5,19 @@ from telegram.constants import (
 from telegram.ext import (
     ContextTypes,
 )
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    filters,
-    InlineQueryHandler,
-)
 import logging
 from random import randint
-from .update_db import try_release,updatedb
+from .update_db import try_release
 from .db import collection_group
-from .ban_rights import banrights
 
 # 设定 cyan 群组变量
 # 加载变量
-import env
-TOKEN=env.TELEGRAM_TOKEN
-MESSAGE_COUNT = env.CYANBOT_MESSAGE_COUNT
+from dotenv import load_dotenv
+import os
+load_dotenv() 
+
+TOKEN= os.getenv("TELEGRAM_TOKEN")
+MESSAGE_COUNT= os.getenv("CYANBOT_MESSAGE_COUNT","60")
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info("echo detected")
@@ -107,19 +102,3 @@ logging.basicConfig(
 logging.info("echo")
 logging.info("meow")
 
-def main():
-    # 创建 bot 应用实例
-    application = (
-        ApplicationBuilder().token(env.TELEGRAM_TOKEN).concurrent_updates(True).build()
-    )
-    application.add_handler(MessageHandler(filters.TEXT & filters.REPLY, release), group=3)
-    # 测试代码
-    application.add_handler(CommandHandler('echo', echo, filters=filters.ChatType.SUPERGROUP))
-    application.add_handler(CommandHandler('meow', meow, filters=filters.ChatType.SUPERGROUP))
-    application.add_handler(CommandHandler('set', set_message, filters=filters.ChatType.SUPERGROUP))
-    application.add_handler(MessageHandler(filters.ChatType.SUPERGROUP & filters.StatusUpdate.NEW_CHAT_MEMBERS, banrights),group=4)
-    application.add_handler(MessageHandler(filters.ChatType.SUPERGROUP & filters.TEXT, updatedb), group=5)
-    application.run_polling()
-
-if __name__ == "__main__":
-    main()

@@ -1,10 +1,12 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from os import environ
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-import env
 # 加载变量
-DATABASE_URL=env.CYANBOT_DATABASE_URL
-DATABASE_NAME = env.CYANBOT_DATABASE_NAME
+DATABASE_URL= os.getenv("CYANBOT_DATABASE_URL")
+DATABASE_NAME = os.getenv("CYANBOT_DATABASE_NAME")
 
 async def connect_mongo():
     client = AsyncIOMotorClient(DATABASE_URL)
