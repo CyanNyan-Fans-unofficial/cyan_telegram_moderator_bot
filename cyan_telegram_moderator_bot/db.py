@@ -1,29 +1,29 @@
-from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
 from os import environ
 
+import env
+# 加载变量
+DATABASE_URL = env.CYANBOT_DATABASE_URL
+DATABASE_NAME = env.CYANBOT_DATABASE_NAME
 
-def connect_mongo():
-    client = MongoClient(environ["DATABASE_URL"])
-    db = client[environ['DATABASE_NAME']]
+async def connect_mongo():
+    client = AsyncIOMotorClient(DATABASE_URL)
+    db = client[DATABASE_NAME]
     return db
 
-
-def collection_user():
-    db = connect_mongo()
+async def collection_user():
+    db = await connect_mongo()
     return db['collection']
 
-
-def collection_counts():
-    db = connect_mongo()
+async def collection_counts():
+    db = await connect_mongo()
     return db['message_counts']
 
-
-def collection_group():
-    db = connect_mongo()
+async def collection_group():
+    db = await connect_mongo()
     return db['groups']
 
-
-def init_user(userid, username, first_name, last_name):
+async def init_user(userid, username, first_name, last_name):
     post = {
         'user_id': userid,
         'user_name': username,
@@ -32,20 +32,18 @@ def init_user(userid, username, first_name, last_name):
         'count': 0,
         'is_qualified': False
     }
-    collection_user().insert_one(post)
+    await (await collection_user()).insert_one(post)
 
-
-def init_counts(chat_id, user_id, init_count=0, is_qualified=False):
+async def init_counts(chat_id, user_id, init_count=0, is_qualified=False):
     count = {
         'chat_id': chat_id,
         'user_id': user_id,
         'is_qualified': is_qualified,
         'count': init_count
     }
-    collection_counts().insert_one(count)
+    await (await collection_counts()).insert_one(count)
 
-
-def init_group(chat_id, title=None):
+async def init_group(chat_id, title=None):
     group = {
         'chat_id': chat_id,
         'title': title,
@@ -54,4 +52,5 @@ def init_group(chat_id, title=None):
         'echo': 'Cyan is cute!',
         'meow': '喵喵喵？'
     }
-    collection_group().insert_one(group)
+    await (await collection_group()).insert_one(group)
+    

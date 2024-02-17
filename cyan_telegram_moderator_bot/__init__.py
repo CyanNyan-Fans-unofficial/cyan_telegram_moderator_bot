@@ -1,46 +1,62 @@
-from telegram.ext import Filters, Updater
-from telegram.ext import CommandHandler, MessageHandler
-from telegram.constants import CHATMEMBER_CREATOR, CHATMEMBER_ADMINISTRATOR
+from telegram import Update
+from telegram.constants import (
+    ChatMemberStatus,
+    )
+from telegram.ext import (
+    ContextTypes,
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    InlineQueryHandler,
+)
 import logging
-import os
 from random import randint
-from .ban_rights import ban_rights
-from .update_db import update_db, try_release
+from .update_db import try_release
 from .db import collection_group
+from .ban_rights import ban_rights
 
+# 设定 cyan 群组变量
+# 加载变量
+import env
+TOKEN=env.TELEGRAM_TOKEN
+DATABASE_URL=env.CYANBOT_DATABASE_URL
+DATABASE_NAME = env.CYANBOT_DATABASE_NAME
+MESSAGE_COUNT = env.CYANBOT_MESSAGE_COUNT
 
-def echo(update, context):
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info("echo detected")
-    group_info = collection_group().find_one({'chat_id': update.effective_chat.id})
+    group_collection = await collection_group()
+    group_info = await group_collection.find_one({'chat_id': update.effective_chat.id})
     if group_info:
-        context.bot.send_message(
+        await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=group_info['echo'])
 
-
-def meow(update, context):
+async def meow(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info("meow detected")
-    group_info = collection_group().find_one({'chat_id': update.effective_chat.id})
+    group_collection = await collection_group()
+    group_info = await group_collection.find_one({'chat_id': update.effective_chat.id})
     if group_info:
-        context.bot.send_message(
+        await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=group_info['meow'])
 
-
-def roll(update, context):
+async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info("roll detected")
     limit = 100
-    if len(context.args) > 0:
+    if context.args:
         try:
             limit = int(context.args[0])
         except ValueError:
-            logging.info('User give an invalid number')
+            logging.info('User gave an invalid number')
     if limit >= 1:
         result = randint(1, limit)
-        update.effective_chat.send_message(result)
+        await update.effective_chat.send_message(text=str(result))
 
-
-def release(update, context):
+async def release(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info("Manually release rights")
     if not (update.message and update.message.reply_to_message):
         return
@@ -48,12 +64,12 @@ def release(update, context):
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
     target_id = target.id
-    chat_member = context.bot.get_chat_member(chat_id, user_id)
-    if chat_member.status not in {CHATMEMBER_CREATOR, CHATMEMBER_ADMINISTRATOR}:
+    chat_member = await context.bot.get_chat_member(chat_id, user_id)
+    if chat_member.status not in {ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR}:
         logging.info('no permission to release rights!')
         return
-    if try_release(context.bot, chat_id, target_id, force=True):
-        update.effective_chat.send_message('Manually released rights!')
+    if await try_release(context.bot, chat_id, target_id, force=True):
+        await update.effective_chat.send_message('Manually released rights!')
 
 
 set_types = {
@@ -63,27 +79,29 @@ set_types = {
     'message_count': 'message_count'
 }
 
-
-def set_message(update, context):
+async def set_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info('set message detected!')
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
 
-    chat_member = context.bot.get_chat_member(chat_id, user_id)
-    if chat_member.status not in {CHATMEMBER_CREATOR, CHATMEMBER_ADMINISTRATOR}:
+    chat_member = await context.bot.get_chat_member(chat_id, user_id)
+    if chat_member.status not in {ChatMemberStatus.OWNER, ChatMemberStatus.ADMINISTRATOR}:
         logging.info('no permission to set message!')
         return
+    # 使用 await 等待 collection_group() 完成，获取集合对象
+    group_collection = await collection_group()
 
-    group_info = collection_group().find_one({'chat_id': chat_id})
+    group_info = await group_collection.find_one({'chat_id': chat_id})
     if group_info and len(context.args) >= 2:
         set_type = context.args[0]
         set_content = ' '.join(context.args[1:])
         if set_type in set_types:
-            collection_group().update_one({'chat_id': chat_id}, {'$set': {set_types[set_type]: set_content}})
-            context.bot.send_message(
+            # 使用 await 等待 collection_group() 完成，获取集合对象
+            group_collection = await collection_group()
+            await group_collection.update_one({'chat_id': chat_id}, {'$set': {set_types[set_type]: set_content}})
+            await context.bot.send_message(
                 chat_id=chat_id,
-                text='Message updated for {}.'.format(set_type))
-
+                text=f'Message updated for {set_type}.')
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -91,29 +109,17 @@ logging.basicConfig(
 logging.info("echo")
 logging.info("meow")
 
-updater = Updater(token=os.environ['TOKEN'], use_context=True)
-dispatcher = updater.dispatcher
-echo_handler = CommandHandler('echo', echo)
-meow_handler = CommandHandler('meow', meow)
-roll_handler = CommandHandler('roll', roll)
-set_message_handler = CommandHandler('set', set_message, filters=Filters.chat_type.supergroup)
-release_handler = CommandHandler('release', release, filters=Filters.chat_type.supergroup)
 
-# send start message
-dispatcher.add_handler(echo_handler)
-dispatcher.add_handler(meow_handler)
-dispatcher.add_handler(roll_handler)
-dispatcher.add_handler(set_message_handler)
-dispatcher.add_handler(release_handler)
-
-# ban the rights except 'Send Text' for new useres
-dispatcher.add_handler(
-    MessageHandler(
-        Filters.chat_type.supergroup & Filters.status_update.new_chat_members,
-        ban_rights))
-
-# update message count, including stickers
-dispatcher.add_handler(
-    MessageHandler(
-        Filters.chat_type.supergroup & Filters.update.message & Filters.text,
-        update_db), group=1)
+def main():
+    # 创建 bot 应用实例
+    application = (
+        ApplicationBuilder().token(env.TELEGRAM_TOKEN).concurrent_updates(True).build()
+    )
+    application.add_handler(MessageHandler(filters.TEXT & filters.REPLY, release), group=3)
+    # 测试代码
+    application.add_handler(CommandHandler('echo', echo, filters=filters.ChatType.SUPERGROUP))
+    application.add_handler(CommandHandler('meow', meow, filters=filters.ChatType.SUPERGROUP))
+    application.add_handler(CommandHandler('set', set_message, filters=filters.ChatType.SUPERGROUP))
+    application.add_handler(MessageHandler(filters.ChatType.SUPERGROUP & filters.StatusUpdate.NEW_CHAT_MEMBERS, ban_rights),group=4)
+    application.add_handler(MessageHandler(filters.ChatType.SUPERGROUP & filters.TEXT, update_db), group=5)
+    application.run_polling()
